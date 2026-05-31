@@ -1,6 +1,17 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import io
+
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer
+)
+from reportlab.lib.styles import getSampleStyleSheet
+
+from groq import Groq
 
 from utils.calculations import (
     calculate_inventory_value,
@@ -10,10 +21,6 @@ from utils.calculations import (
 from utils.health import (
     calculate_health_score,
     health_status
-)
-
-from utils.pdf_report import (
-    generate_pdf_report
 )
 
 # --------------------------------------------------
@@ -32,9 +39,7 @@ st.set_page_config(
 
 st.sidebar.title("Filters")
 
-st.sidebar.header(
-    "Upload Data"
-)
+st.sidebar.header("Upload Data")
 
 inventory_file = st.sidebar.file_uploader(
     "Inventory CSV",
@@ -72,73 +77,25 @@ try:
             "data/sales_history.csv"
         )
 
+    df = inventory.merge(
+        sales,
+        on="Product"
+    )
+
+    df["DaysLeft"] = calculate_days_left(
+        df
+    )
+
 except Exception as e:
 
     st.error(
-        f"Error loading CSV files: {e}"
+        f"Error loading data: {e}"
     )
 
     st.stop()
 
 # --------------------------------------------------
-# VALIDATION
-# --------------------------------------------------
-
-inventory_required = [
-    "Product",
-    "Category",
-    "Stock",
-    "Price"
-]
-
-sales_required = [
-    "Product",
-    "DailySales"
-]
-
-missing_inventory = [
-    col
-    for col in inventory_required
-    if col not in inventory.columns
-]
-
-missing_sales = [
-    col
-    for col in sales_required
-    if col not in sales.columns
-]
-
-if missing_inventory:
-
-    st.error(
-        f"Inventory CSV missing columns: {missing_inventory}"
-    )
-
-    st.stop()
-
-if missing_sales:
-
-    st.error(
-        f"Sales CSV missing columns: {missing_sales}"
-    )
-
-    st.stop()
-
-# --------------------------------------------------
-# MERGE DATA
-# --------------------------------------------------
-
-df = inventory.merge(
-    sales,
-    on="Product"
-)
-
-df["DaysLeft"] = calculate_days_left(
-    df
-)
-
-# --------------------------------------------------
-# CATEGORY FILTER
+# FILTERS
 # --------------------------------------------------
 
 categories = ["All"] + sorted(
@@ -158,7 +115,7 @@ if selected_category != "All":
     ]
 
 # --------------------------------------------------
-# KPI CALCULATIONS
+# CALCULATIONS
 # --------------------------------------------------
 
 inventory_value = calculate_inventory_value(
@@ -195,9 +152,7 @@ warehouse_status = health_status(
 # HEADER
 # --------------------------------------------------
 
-st.title(
-    "📦 AI Logistics Copilot"
-)
+st.title("📦 AI Logistics Copilot")
 
 st.markdown(
     """
@@ -252,9 +207,7 @@ st.divider()
 # CHARTS
 # --------------------------------------------------
 
-left_col, right_col = st.columns(
-    [2, 1]
-)
+left_col, right_col = st.columns([2, 1])
 
 with left_col:
 
@@ -362,7 +315,8 @@ Stock: {row['Stock']}
 
 Daily Sales: {row['DailySales']}
 
-Coverage Remaining: {row['DaysLeft']} days
+Coverage Remaining:
+{row['DaysLeft']} days
 """
         )
 
@@ -371,7 +325,6 @@ else:
     st.success(
         """
 No forecast alerts detected.
-
 Inventory coverage is healthy.
 """
     )
@@ -379,40 +332,126 @@ Inventory coverage is healthy.
 st.divider()
 
 # --------------------------------------------------
-# PDF EXPORT
+# PDF REPORT
 # --------------------------------------------------
 
 st.subheader(
-    "📄 Executive Report"
+    "📄 Export Executive Report"
 )
 
-pdf_file = generate_pdf_report(
-    inventory_value,
-    health_score,
-    critical_items,
-    warehouse_status
-)
+if st.button(
+    "Generate PDF Report"
+):
 
-st.download_button(
-    label="Download Executive Report",
-    data=pdf_file,
-    file_name="inventory_report.pdf",
-    mime="application/pdf"
-)
+    buffer = io.BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter
+    )
+
+    styles = getSampleStyleSheet()
+
+    story = []
+
+    story.append(
+        Paragraph(
+            "AI Logistics Copilot Report",
+            styles["Title"]
+        )
+    )
+
+    story.append(
+        Spacer(1, 12)
+    )
+
+    story.append(
+        Paragraph(
+            f"Inventory Value: €{inventory_value:,.0f}",
+            styles["BodyText"]
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"Health Score: {health_score}",
+            styles["BodyText"]
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"Warehouse Status: {warehouse_status}",
+            styles["BodyText"]
+        )
+    )
+
+    doc.build(story)
+
+    pdf = buffer.getvalue()
+
+    st.download_button(
+        "⬇ Download PDF",
+        pdf,
+        file_name="inventory_report.pdf",
+        mime="application/pdf"
+    )
 
 st.divider()
 
 # --------------------------------------------------
-# DATA PREVIEW
+# GROQ AI ANALYSIS
 # --------------------------------------------------
 
-with st.expander(
-    "📄 View Loaded Data"
-):
+st.subheader(
+    "🤖 AI Inventory Analysis"
+)
 
-    st.dataframe(
-        df,
-        use_container_width=True
+groq_key = st.secrets.get(
+    "GROQ_API_KEY",
+    None
+)
+
+if groq_key:
+
+    if st.button(
+        "Generate AI Analysis"
+    ):
+
+        client = Groq(
+            api_key=groq_key
+        )
+
+        summary = f"""
+Inventory Value: {inventory_value}
+Health Score: {health_score}
+Critical Items: {critical_items}
+Warning Items: {warning_items}
+"""
+
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a logistics analyst."
+                },
+                {
+                    "role": "user",
+                    "content": summary
+                }
+            ]
+        )
+
+        st.success(
+            response.choices[0]
+            .message.content
+        )
+
+else:
+
+    st.info(
+        "Add GROQ_API_KEY to Streamlit Secrets."
     )
 
 # --------------------------------------------------
