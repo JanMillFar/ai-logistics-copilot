@@ -23,16 +23,50 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
+# SIDEBAR
+# --------------------------------------------------
+
+st.sidebar.title(
+    "Filters"
+)
+
+st.sidebar.header(
+    "Upload Data"
+)
+
+inventory_file = st.sidebar.file_uploader(
+    "Inventory CSV",
+    type=["csv"]
+)
+
+sales_file = st.sidebar.file_uploader(
+    "Sales CSV",
+    type=["csv"]
+)
+
+# --------------------------------------------------
 # DADES
 # --------------------------------------------------
 
-inventory = pd.read_csv(
-    "data/inventory.csv"
-)
+if inventory_file and sales_file:
 
-sales = pd.read_csv(
-    "data/sales_history.csv"
-)
+    inventory = pd.read_csv(
+        inventory_file
+    )
+
+    sales = pd.read_csv(
+        sales_file
+    )
+
+else:
+
+    inventory = pd.read_csv(
+        "data/inventory.csv"
+    )
+
+    sales = pd.read_csv(
+        "data/sales_history.csv"
+    )
 
 df = inventory.merge(
     sales,
@@ -44,7 +78,27 @@ df["DaysLeft"] = calculate_days_left(
 )
 
 # --------------------------------------------------
-# CÀLCULS
+# FILTRE DE CATEGORIES
+# --------------------------------------------------
+
+categories = ["All"] + sorted(
+    df["Category"].unique().tolist()
+)
+
+selected_category = st.sidebar.selectbox(
+    "Category",
+    categories
+)
+
+if selected_category != "All":
+
+    df = df[
+        df["Category"]
+        == selected_category
+    ]
+
+# --------------------------------------------------
+# CÀLCULS KPI
 # --------------------------------------------------
 
 inventory_value = calculate_inventory_value(
@@ -76,30 +130,6 @@ health_score = calculate_health_score(
 warehouse_status = health_status(
     health_score
 )
-
-# --------------------------------------------------
-# SIDEBAR
-# --------------------------------------------------
-
-st.sidebar.title(
-    "Filters"
-)
-
-categories = ["All"] + sorted(
-    df["Category"].unique().tolist()
-)
-
-selected_category = st.sidebar.selectbox(
-    "Category",
-    categories
-)
-
-if selected_category != "All":
-
-    df = df[
-        df["Category"]
-        == selected_category
-    ]
 
 # --------------------------------------------------
 # HEADER
@@ -266,27 +296,41 @@ if len(forecast_alerts) > 0:
 
         st.warning(
             f"""
-            {row['Product']}
+{row['Product']}
 
-            Stock: {row['Stock']}
+Stock: {row['Stock']}
 
-            Daily Sales: {row['DailySales']}
+Daily Sales: {row['DailySales']}
 
-            Coverage Remaining:
-            {row['DaysLeft']} days
-            """
+Coverage Remaining:
+{row['DaysLeft']} days
+"""
         )
 
 else:
 
     st.success(
         """
-        No forecast alerts detected.
-        Inventory coverage is healthy.
-        """
+No forecast alerts detected.
+
+Inventory coverage is healthy.
+"""
     )
 
 st.divider()
+
+# --------------------------------------------------
+# DATA PREVIEW
+# --------------------------------------------------
+
+with st.expander(
+    "📄 View Loaded Data"
+):
+
+    st.dataframe(
+        df,
+        use_container_width=True
+    )
 
 # --------------------------------------------------
 # FOOTER
