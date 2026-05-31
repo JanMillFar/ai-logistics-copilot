@@ -12,8 +12,12 @@ from utils.health import (
     health_status
 )
 
+from utils.pdf_report import (
+    generate_pdf_report
+)
+
 # --------------------------------------------------
-# CONFIGURACIÓ
+# CONFIG
 # --------------------------------------------------
 
 st.set_page_config(
@@ -26,9 +30,7 @@ st.set_page_config(
 # SIDEBAR
 # --------------------------------------------------
 
-st.sidebar.title(
-    "Filters"
-)
+st.sidebar.title("Filters")
 
 st.sidebar.header(
     "Upload Data"
@@ -45,28 +47,86 @@ sales_file = st.sidebar.file_uploader(
 )
 
 # --------------------------------------------------
-# DADES
+# LOAD DATA
 # --------------------------------------------------
 
-if inventory_file and sales_file:
+try:
 
-    inventory = pd.read_csv(
-        inventory_file
+    if inventory_file and sales_file:
+
+        inventory = pd.read_csv(
+            inventory_file
+        )
+
+        sales = pd.read_csv(
+            sales_file
+        )
+
+    else:
+
+        inventory = pd.read_csv(
+            "data/inventory.csv"
+        )
+
+        sales = pd.read_csv(
+            "data/sales_history.csv"
+        )
+
+except Exception as e:
+
+    st.error(
+        f"Error loading CSV files: {e}"
     )
 
-    sales = pd.read_csv(
-        sales_file
+    st.stop()
+
+# --------------------------------------------------
+# VALIDATION
+# --------------------------------------------------
+
+inventory_required = [
+    "Product",
+    "Category",
+    "Stock",
+    "Price"
+]
+
+sales_required = [
+    "Product",
+    "DailySales"
+]
+
+missing_inventory = [
+    col
+    for col in inventory_required
+    if col not in inventory.columns
+]
+
+missing_sales = [
+    col
+    for col in sales_required
+    if col not in sales.columns
+]
+
+if missing_inventory:
+
+    st.error(
+        f"Inventory CSV missing columns: {missing_inventory}"
     )
 
-else:
+    st.stop()
 
-    inventory = pd.read_csv(
-        "data/inventory.csv"
+if missing_sales:
+
+    st.error(
+        f"Sales CSV missing columns: {missing_sales}"
     )
 
-    sales = pd.read_csv(
-        "data/sales_history.csv"
-    )
+    st.stop()
+
+# --------------------------------------------------
+# MERGE DATA
+# --------------------------------------------------
 
 df = inventory.merge(
     sales,
@@ -78,7 +138,7 @@ df["DaysLeft"] = calculate_days_left(
 )
 
 # --------------------------------------------------
-# FILTRE DE CATEGORIES
+# CATEGORY FILTER
 # --------------------------------------------------
 
 categories = ["All"] + sorted(
@@ -98,7 +158,7 @@ if selected_category != "All":
     ]
 
 # --------------------------------------------------
-# CÀLCULS KPI
+# KPI CALCULATIONS
 # --------------------------------------------------
 
 inventory_value = calculate_inventory_value(
@@ -189,7 +249,7 @@ with col4:
 st.divider()
 
 # --------------------------------------------------
-# GRÀFICS
+# CHARTS
 # --------------------------------------------------
 
 left_col, right_col = st.columns(
@@ -302,8 +362,7 @@ Stock: {row['Stock']}
 
 Daily Sales: {row['DailySales']}
 
-Coverage Remaining:
-{row['DaysLeft']} days
+Coverage Remaining: {row['DaysLeft']} days
 """
         )
 
@@ -316,6 +375,30 @@ No forecast alerts detected.
 Inventory coverage is healthy.
 """
     )
+
+st.divider()
+
+# --------------------------------------------------
+# PDF EXPORT
+# --------------------------------------------------
+
+st.subheader(
+    "📄 Executive Report"
+)
+
+pdf_file = generate_pdf_report(
+    inventory_value,
+    health_score,
+    critical_items,
+    warehouse_status
+)
+
+st.download_button(
+    label="Download Executive Report",
+    data=pdf_file,
+    file_name="inventory_report.pdf",
+    mime="application/pdf"
+)
 
 st.divider()
 
