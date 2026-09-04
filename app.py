@@ -11,7 +11,7 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet
 
-from groq import Groq
+from google import genai
 
 from utils.calculations import (
     calculate_inventory_value,
@@ -22,7 +22,11 @@ from utils.health import (
     calculate_health_score,
     health_status
 )
-from utils.groq_config import get_groq_model, get_groq_setting, is_groq_enabled
+from utils.gemini_config import (
+    get_gemini_free_model,
+    get_gemini_setting,
+    is_gemini_free_enabled,
+)
 
 # --------------------------------------------------
 # CONFIG
@@ -401,30 +405,28 @@ if st.button(
 st.divider()
 
 # --------------------------------------------------
-# GROQ AI ANALYSIS
+# GEMINI FREE AI ANALYSIS
 # --------------------------------------------------
 
 st.subheader(
     "🤖 AI Inventory Analysis"
 )
 
-groq_key = get_groq_setting("GROQ_API_KEY")
+gemini_key = get_gemini_setting("GEMINI_API_KEY")
 
-if not is_groq_enabled():
+if not is_gemini_free_enabled():
 
     st.info(
-        "AI analysis is disabled to prevent Groq API charges."
+        "AI analysis is disabled until Gemini Free is explicitly enabled."
     )
 
-elif groq_key:
+elif gemini_key:
 
     if st.button(
         "Generate AI Analysis"
     ):
 
-        client = Groq(
-            api_key=groq_key
-        )
+        client = genai.Client(api_key=gemini_key)
 
         summary = f"""
 Inventory Value: {inventory_value}
@@ -434,34 +436,25 @@ Warning Items: {warning_items}
 """
 
         try:
-            response = client.chat.completions.create(
-                model=get_groq_model(),
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a logistics analyst."
-                    },
-                    {
-                        "role": "user",
-                        "content": summary
-                    }
-                ]
+            interaction = client.interactions.create(
+                model=get_gemini_free_model(),
+                input=("You are a logistics analyst.\n\n" + summary),
+                store=False,
             )
 
             st.success(
-                response.choices[0]
-                .message.content
+                interaction.output_text
             )
         except Exception:
             st.error(
                 "The AI analysis is temporarily unavailable. "
-                "Check the Groq configuration and try again."
+                "Check the Gemini Free configuration and try again."
             )
 
 else:
 
     st.info(
-        "Add GROQ_API_KEY to Streamlit Secrets."
+        "Add GEMINI_API_KEY to Streamlit Secrets."
     )
 
 # --------------------------------------------------
