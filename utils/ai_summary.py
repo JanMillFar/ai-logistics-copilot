@@ -1,11 +1,13 @@
 from groq import Groq
-import streamlit as st
+from utils.groq_config import get_groq_model, get_groq_setting, is_groq_enabled
 
 
 def generate_ai_summary(df):
+    if not is_groq_enabled():
+        raise RuntimeError("Groq is disabled to prevent API charges.")
 
     client = Groq(
-        api_key=st.secrets["GROQ_API_KEY"]
+        api_key=get_groq_setting("GROQ_API_KEY")
     )
 
     inventory_snapshot = df[
@@ -34,7 +36,7 @@ Inventory Data:
 """
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=get_groq_model(),
         messages=[
             {
                 "role": "user",
