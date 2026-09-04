@@ -22,6 +22,7 @@ from utils.health import (
     calculate_health_score,
     health_status
 )
+from utils.groq_config import get_groq_model, get_groq_setting, is_groq_enabled
 
 # --------------------------------------------------
 # CONFIG
@@ -407,12 +408,15 @@ st.subheader(
     "🤖 AI Inventory Analysis"
 )
 
-groq_key = st.secrets.get(
-    "GROQ_API_KEY",
-    None
-)
+groq_key = get_groq_setting("GROQ_API_KEY")
 
-if groq_key:
+if not is_groq_enabled():
+
+    st.info(
+        "AI analysis is disabled to prevent Groq API charges."
+    )
+
+elif groq_key:
 
     if st.button(
         "Generate AI Analysis"
@@ -429,24 +433,30 @@ Critical Items: {critical_items}
 Warning Items: {warning_items}
 """
 
-        response = client.chat.completions.create(
-            model="llama3-70b-8192",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a logistics analyst."
-                },
-                {
-                    "role": "user",
-                    "content": summary
-                }
-            ]
-        )
+        try:
+            response = client.chat.completions.create(
+                model=get_groq_model(),
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a logistics analyst."
+                    },
+                    {
+                        "role": "user",
+                        "content": summary
+                    }
+                ]
+            )
 
-        st.success(
-            response.choices[0]
-            .message.content
-        )
+            st.success(
+                response.choices[0]
+                .message.content
+            )
+        except Exception:
+            st.error(
+                "The AI analysis is temporarily unavailable. "
+                "Check the Groq configuration and try again."
+            )
 
 else:
 
