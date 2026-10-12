@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 
 from datetime import datetime
 
@@ -87,12 +88,10 @@ if st.button(
     "Generate Executive Report"
 ):
 
-    pdf_path = (
-        "reports/executive_report.pdf"
-    )
+    pdf_buffer = io.BytesIO()
 
     doc = SimpleDocTemplate(
-        pdf_path
+        pdf_buffer
     )
 
     styles = (
@@ -307,14 +306,9 @@ if st.button(
         "Executive Report Generated"
     )
 
-    with open(
-        pdf_path,
-        "rb"
-    ) as file:
-
-        st.download_button(
-            label="📥 Download Executive Report",
-            data=file,
-            file_name="executive_report.pdf",
-            mime="application/pdf"
-        )
+    st.download_button(
+        label="📥 Download Executive Report",
+        data=pdf_buffer.getvalue(),
+        file_name="executive_report.pdf",
+        mime="application/pdf"
+    )
