@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 
+from utils.health import calculate_health_score
+
 from utils.calculations import (
     calculate_inventory_value,
     calculate_days_left
@@ -51,13 +53,7 @@ healthy_items = len(
     df[df["DaysLeft"] >= 21]
 )
 
-health_score = round(
-    (
-        healthy_items
-        / len(df)
-    ) * 100,
-    1
-)
+health_score = calculate_health_score(healthy_items, warning_items, critical_items)
 
 if st.button(
     "Generate Executive Summary"
@@ -83,7 +79,7 @@ Healthy products:
 {healthy_items}
 
 Inventory health score:
-{health_score}%
+{health_score}/100
 
 ## Main Recommendation
 
@@ -92,9 +88,9 @@ with less than 7 days of coverage.
 
 ## Conclusion
 
-Warehouse operations remain stable,
-but critical inventory items require
-immediate attention.
+The sample contains {critical_items} critical products
+and {warning_items} products recommended for review.
+These indicators support operational review.
 """
 
     st.markdown(summary)
