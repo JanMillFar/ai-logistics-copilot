@@ -1,5 +1,7 @@
 # AI Logistics Copilot
 
+**AI evaluation work sample:** [reproducible findings, response rubric and conversational test designs](docs/ai-evaluation/README.md). The portfolio separates observed code behaviour from unexecuted model tests and discloses AI assistance.
+
 Prototipo de portfolio de Jan Millan para analizar inventario, revisar riesgos y apoyar decisiones de reposición con Python, pandas y Streamlit. Parte de necesidades operativas reales y utiliza los datos de muestra incluidos en el repositorio.
 
 ## Qué se puede revisar
@@ -50,3 +52,4 @@ Python, pandas, Streamlit, Plotly, ReportLab y SDK de Google Gen AI.
 ## Autor
 
 Jan Millan · [Perfil de GitHub](https://github.com/JanMillFar)
+
